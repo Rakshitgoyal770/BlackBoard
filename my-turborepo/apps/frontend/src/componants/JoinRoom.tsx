@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+import { Link, useNavigate } from 'react-router-dom';
+import { clearToken, getToken } from '../lib/auth';
+import { API_BASE } from '../lib/config';
 
 export default function JoinRoom() {
+  const navigate = useNavigate();
   const [roomName, setRoomName] = useState('');
   const [roomId, setRoomId] = useState('');
   const [message, setMessage] = useState('');
@@ -12,7 +13,7 @@ export default function JoinRoom() {
 
   async function onCreateRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     if (!token) {
       setMessage('Please sign in first.');
@@ -41,7 +42,8 @@ export default function JoinRoom() {
       const payload = JSON.parse(text) as { roomId?: number };
       if (payload.roomId) {
         setRoomId(String(payload.roomId));
-        setMessage(`Room created. You can join room ${payload.roomId}.`);
+        setMessage(`Room created. Redirecting to room ${payload.roomId}.`);
+        navigate(`/rooms/${payload.roomId}`);
       } else {
         setMessage('Room created, but room id was missing.');
       }
@@ -54,12 +56,20 @@ export default function JoinRoom() {
 
   function onJoinRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!roomId.trim()) {
+    const normalizedRoomId = roomId.trim();
+
+    if (!normalizedRoomId) {
       setMessage('Enter a room id to continue.');
       return;
     }
 
-    setMessage(`Ready to join room ${roomId}. Chat route can be added next.`);
+    if (!/^\d+$/.test(normalizedRoomId)) {
+      setMessage('Room id should contain numbers only.');
+      return;
+    }
+
+    setMessage(`Opening room ${normalizedRoomId}...`);
+    navigate(`/rooms/${normalizedRoomId}`);
   }
 
   return (
@@ -103,9 +113,21 @@ export default function JoinRoom() {
 
         {message && <p className="status-line">{message}</p>}
 
-        <p className="switch-line">
-          <Link to="/">Back to home</Link>
-        </p>
+        <div className="join-footer">
+          <p className="switch-line">
+            <Link to="/">Back to home</Link>
+          </p>
+          <button
+            className="text-button"
+            type="button"
+            onClick={() => {
+              clearToken();
+              navigate('/signin', { replace: true });
+            }}
+          >
+            Sign out
+          </button>
+        </div>
       </section>
     </main>
   );

@@ -23,7 +23,9 @@ export default function middleware(req: Request, res: Response, next: NextFuncti
         }
 
         (req as any).userId = String(userId);
-        req.body.userId = String(userId);
+        if (req.body && typeof req.body === 'object') {
+            req.body.userId = String(userId);
+        }
         next();
     }catch(e){
         return res.status(401).send('Unauthorized');

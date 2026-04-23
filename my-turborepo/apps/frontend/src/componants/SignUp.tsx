@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+import { API_BASE } from '../lib/config';
 
 export default function SignUp() {
     const [username, setUsername] = useState('');
@@ -60,7 +59,7 @@ export default function SignUp() {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
+                            placeholder="Choose a password"
                             required
                             minLength={6}
                         />

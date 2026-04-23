@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+import { API_BASE } from '../lib/config';
 
 export default function SignIn() {
     const navigate = useNavigate();
@@ -65,7 +64,7 @@ export default function SignIn() {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
+                            placeholder="Enter your password"
                             required
                         />
                     </label>

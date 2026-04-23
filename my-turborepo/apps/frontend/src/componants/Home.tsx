@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { clearToken } from '../lib/auth';
 
 export default function Home() {
     const token = localStorage.getItem('token');
@@ -13,9 +14,21 @@ export default function Home() {
                 </p>
                 <div className="home-actions">
                     {token ? (
-                        <Link to="/join-room" className="btn btn-primary">
-                            Join a room
-                        </Link>
+                        <>
+                            <Link to="/join-room" className="btn btn-primary">
+                                Join a room
+                            </Link>
+                            <button
+                                className="btn btn-ghost"
+                                type="button"
+                                onClick={() => {
+                                    clearToken();
+                                    window.location.reload();
+                                }}
+                            >
+                                Sign out
+                            </button>
+                        </>
                     ) : (
                         <>
                             <Link to="/signup" className="btn btn-primary">

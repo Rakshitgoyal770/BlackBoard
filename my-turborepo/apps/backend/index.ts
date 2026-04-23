@@ -5,13 +5,23 @@ import cors from 'cors'
 import { secretKey } from './config';
 import middleware from './middleware';
 const app = express();
-app.use(cors());
+const PORT = Number(process.env.PORT ?? 5000);
+const ALLOWED_ORIGIN = process.env.CORS_ORIGIN ?? '*';
+
+app.use(cors({
+    origin: ALLOWED_ORIGIN === '*' ? true : ALLOWED_ORIGIN,
+    credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 
 app.get('/', (req, res) => {
     res.send('Hello World!');
+})
+
+app.get('/health', (_req, res) => {
+    res.json({ status: 'ok' });
 })
 
 app.post('/SignUp', async (req, res) => {  
@@ -81,7 +91,82 @@ app.post('/rooms', middleware, async (req, res) => {
     }
 });
 
+app.get('/rooms/:roomId', middleware, async (req, res) => {
+    const roomId = Number(req.params.roomId);
 
-app.listen(5000, ()=>{
-    console.log('server is running on port 5000');
+    if (!Number.isInteger(roomId)) {
+        return res.status(400).send('Invalid room id');
+    }
+
+    const room = await prisma.room.findUnique({
+        where: { id: roomId },
+        include: {
+            admin: {
+                select: {
+                    id: true,
+                    username: true,
+                    name: true
+                }
+            }
+        }
+    });
+
+    if (!room) {
+        return res.status(404).send('Room not found');
+    }
+
+    res.json({
+        id: room.id,
+        slug: room.slug,
+        createdAt: room.createdAt,
+        admin: room.admin
+    });
+});
+
+app.get('/rooms/:roomId/messages', middleware, async (req, res) => {
+    const roomId = Number(req.params.roomId);
+
+    if (!Number.isInteger(roomId)) {
+        return res.status(400).send('Invalid room id');
+    }
+
+    const room = await prisma.room.findUnique({
+        where: { id: roomId },
+        select: { id: true }
+    });
+
+    if (!room) {
+        return res.status(404).send('Room not found');
+    }
+
+    const messages = await prisma.chat.findMany({
+        where: { roomId },
+        orderBy: { createdAt: 'asc' },
+        take: 100,
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    username: true,
+                    name: true
+                }
+            }
+        }
+    });
+
+    res.json(
+        messages.map((chat) => ({
+            id: chat.id,
+            message: chat.message,
+            createdAt: chat.createdAt,
+            roomId: chat.roomId,
+            userId: chat.userId,
+            username: chat.user.username,
+            name: chat.user.name
+        }))
+    );
+});
+
+app.listen(PORT, '0.0.0.0', ()=>{
+    console.log(`server is running on port ${PORT}`);
 })

@@ -1,12 +1,11 @@
-import type { IncomingMessage } from "http";
+import { createServer, type IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
 import { prisma } from "@repo/db";
 import { WebSocket, WebSocketServer } from "ws";
+import { secretKey } from "../../backend/config";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "hi";
-const wss = new WebSocketServer({ port: 8080 });
-
-console.log("WebSocket server is running on port 8080");
+const JWT_SECRET = secretKey;
+const PORT = Number(process.env.PORT ?? 8080);
 
 interface User {
   ws: WebSocket;
@@ -41,6 +40,19 @@ function checkUser(token: string): string | null {
     return null;
   }
 }
+
+const server = createServer((req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "ok" }));
+    return;
+  }
+
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("WebSocket server is running");
+});
+
+const wss = new WebSocketServer({ server });
 
 wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
   const requestUrl = request.url ?? "";
@@ -113,11 +125,20 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
         return;
       }
 
-      await prisma.chat.create({
+      const chat = await prisma.chat.create({
         data: {
           roomId,
           userId,
           message,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              name: true,
+            },
+          },
         },
       });
 
@@ -127,7 +148,12 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
             JSON.stringify({
               type: "chat",
               roomId,
+              id: chat.id,
               message,
+              userId,
+              username: chat.user.username,
+              name: chat.user.name,
+              createdAt: chat.createdAt,
             }),
           );
         }
@@ -137,8 +163,13 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
 
   ws.on("close", () => {
     const index = users.findIndex((user) => user.ws === ws);
+
     if (index !== -1) {
       users.splice(index, 1);
     }
   });
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`WebSocket server is running on port ${PORT}`);
 });

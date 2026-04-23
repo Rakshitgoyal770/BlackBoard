@@ -4,6 +4,7 @@ import Home from './componants/Home';
 import SignIn from './componants/SignIn';
 import SignUp from './componants/SignUp';
 import JoinRoom from './componants/JoinRoom';
+import ChatRoom from './componants/ChatRoom';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const token = localStorage.getItem('token');
@@ -26,6 +27,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <JoinRoom />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rooms/:roomId"
+        element={
+          <ProtectedRoute>
+            <ChatRoom />
           </ProtectedRoute>
         }
       />

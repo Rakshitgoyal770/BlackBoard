@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: blackboard-backend
+    runtime: node
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile
+    startCommand: pnpm --filter backend start
+    plan: free
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: CORS_ORIGIN
+        sync: false
+
+  - type: web
+    name: blackboard-ws-backend
+    runtime: node
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile
+    startCommand: pnpm --filter ws-backend start
+    plan: free
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+
+  - type: static_site
+    name: blackboard-frontend
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter frontend build
+    staticPublishPath: apps/frontend/dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_WS_URL
+        sync: false

@@ -2,7 +2,7 @@ services:
   - type: web
     name: blackboard-backend
     runtime: node
-    rootDir: .
+    rootDir: my-turborepo
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @repo/db db:generate
     startCommand: pnpm --filter backend start
     plan: free
@@ -19,7 +19,7 @@ services:
   - type: web
     name: blackboard-ws-backend
     runtime: node
-    rootDir: .
+    rootDir: my-turborepo
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @repo/db db:generate
     startCommand: pnpm --filter ws-backend start
     plan: free
@@ -34,7 +34,7 @@ services:
   - type: web
     name: blackboard-frontend
     runtime: static
-    rootDir: .
+    rootDir: my-turborepo
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter frontend build
     staticPublishPath: apps/frontend/dist
     pullRequestPreviewsEnabled: false

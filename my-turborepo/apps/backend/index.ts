@@ -9,8 +9,10 @@ const PORT = Number(process.env.PORT ?? 5000);
 const ALLOWED_ORIGIN = process.env.CORS_ORIGIN ?? '*';
 
 app.use(cors({
-    origin: ALLOWED_ORIGIN === '*' ? true : ALLOWED_ORIGIN,
-    credentials: true,
+    origin: ALLOWED_ORIGIN === '*' ? '*' : ALLOWED_ORIGIN,
+    credentials: false,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

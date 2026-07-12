@@ -68,7 +68,34 @@ export function drawScene(
   previewShape?: Shape | null
 ) {
   context.clearRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = '#0f1720';
+  const boardGradient = context.createLinearGradient(0, 0, 0, canvas.height);
+  boardGradient.addColorStop(0, '#03050a');
+  boardGradient.addColorStop(0.24, '#020408');
+  boardGradient.addColorStop(0.62, '#010307');
+  boardGradient.addColorStop(1, '#000102');
+  context.fillStyle = boardGradient;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  const glassGlow = context.createRadialGradient(
+    canvas.width * 0.28,
+    canvas.height * 0.18,
+    0,
+    canvas.width * 0.28,
+    canvas.height * 0.18,
+    canvas.width * 0.95
+  );
+  glassGlow.addColorStop(0, 'rgba(28, 54, 96, 0.08)');
+  glassGlow.addColorStop(0.35, 'rgba(10, 28, 58, 0.05)');
+  glassGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  context.fillStyle = glassGlow;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  const sheen = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+  sheen.addColorStop(0, 'rgba(54, 84, 140, 0.035)');
+  sheen.addColorStop(0.12, 'rgba(54, 84, 140, 0.01)');
+  sheen.addColorStop(0.48, 'rgba(0, 0, 0, 0)');
+  sheen.addColorStop(1, 'rgba(8, 12, 18, 0.06)');
+  context.fillStyle = sheen;
   context.fillRect(0, 0, canvas.width, canvas.height);
 
   shapes.forEach((shape) => drawShape(context, shape, false));
@@ -83,8 +110,8 @@ function drawShape(
   shape: Shape,
   isPreview: boolean
 ) {
-  context.strokeStyle = isPreview ? 'rgba(255,255,255,0.55)' : '#f4f7fb';
-  context.fillStyle = 'rgba(244,247,251,0.12)';
+  context.strokeStyle = isPreview ? 'rgba(78, 96, 128, 0.52)' : '#bfc9d6';
+  context.fillStyle = 'rgba(34, 46, 62, 0.18)';
   context.lineWidth = 2;
 
   if (shape.type === 'rectangle') {

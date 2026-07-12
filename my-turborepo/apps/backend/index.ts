@@ -1,3 +1,5 @@
+import 'dotenv/config';
+import { AccessToken } from 'livekit-server-sdk';
 import express from 'express';
 import { prisma } from '@repo/db';
 import jwt from 'jsonwebtoken';
@@ -75,7 +77,7 @@ app.post('/Login', async (req, res) => {
         return res.status(401).send('Invalid username or password');
     }
 
-    const token = jwt.sign({ UserId: user.id }, secretKey, { expiresIn: '1h' });
+    const token = jwt.sign({ UserId: user.id }, secretKey);
     res.send({ token });
 })
 
@@ -179,6 +181,47 @@ app.get('/rooms/:roomId/messages', middleware, async (req, res) => {
             name: chat.user.name
         }))
     );
+});
+
+
+app.post('/video-token', middleware, async (req, res) => {
+  const userId = (req as any).userId;
+  const { roomId } = req.body;
+    const livekitApiKey = process.env.LIVEKIT_API_KEY?.trim();
+    const livekitApiSecret = process.env.LIVEKIT_API_SECRET?.trim();
+    const livekitUrl = process.env.LIVEKIT_URL?.trim();
+
+    if (!roomId) {
+    return res.status(400).send('roomId is required');
+  }
+
+    if (!livekitApiKey || !livekitApiSecret || !livekitUrl) {
+        return res.status(500).send('LiveKit server is not configured.');
+    }
+
+    if (!/^wss?:\/\//i.test(livekitUrl)) {
+        return res.status(500).send('LIVEKIT_URL must be a websocket URL, for example wss://<domain>.livekit.cloud');
+    }
+
+  // Reuse your existing room lookup to confirm the room exists
+  const room = await prisma.room.findUnique({ where: { id: Number(roomId) } });
+  if (!room) {
+    return res.status(404).send('Room not found');
+  }
+
+  const at = new AccessToken(
+        livekitApiKey,
+        livekitApiSecret,
+    { identity: String(userId) }
+  );
+
+  at.addGrant({
+    roomJoin: true,
+    room: `room-${roomId}`, // namespace it so it doesn't collide with other apps
+  });
+
+  const token = await at.toJwt();
+    res.json({ token, url: livekitUrl });
 });
 
 app.listen(PORT, '0.0.0.0', ()=>{

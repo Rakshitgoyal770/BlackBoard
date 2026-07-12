@@ -15,8 +15,10 @@
   "dependencies": {
     "@repo/db": "workspace:*",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "livekit-server-sdk": "^2.17.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

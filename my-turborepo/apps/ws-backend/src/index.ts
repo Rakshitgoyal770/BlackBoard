@@ -71,6 +71,7 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
     return;
   }
 
+  // Keep a small in-memory record so we can track which rooms this socket has joined.
   const currentUser: User = {
     ws,
     userId,
@@ -100,6 +101,7 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
       }
 
       if (!currentUser.rooms.includes(roomId)) {
+        // Join is idempotent; only add the room once per connected socket.
         currentUser.rooms.push(roomId);
       }
 
@@ -113,6 +115,7 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
         return;
       }
 
+      // Remove the room so future broadcasts skip this socket.
       currentUser.rooms = currentUser.rooms.filter((room) => room !== roomId);
       return;
     }
@@ -125,6 +128,7 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
         return;
       }
 
+      // Persist the shape first so the room history stays consistent with realtime delivery.
       const chat = await prisma.chat.create({
         data: {
           roomId,
@@ -142,6 +146,7 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
         },
       });
 
+      // Broadcast the saved payload only to sockets that have joined the room.
       users.forEach((user) => {
         if (user.rooms.includes(roomId) && user.ws.readyState === WebSocket.OPEN) {
           user.ws.send(
@@ -162,6 +167,7 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
   });
 
   ws.on("close", () => {
+    // Drop disconnected sockets from the active user list to avoid stale broadcasts.
     const index = users.findIndex((user) => user.ws === ws);
 
     if (index !== -1) {

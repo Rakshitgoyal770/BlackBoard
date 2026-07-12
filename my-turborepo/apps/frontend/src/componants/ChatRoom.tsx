@@ -448,6 +448,12 @@ export default function ChatRoom() {
             <strong>Room #{Number.isInteger(roomId) ? roomId : 'Unknown'}</strong>
           </div>
 
+          {status && (
+            <div className="room-status" role="status" aria-live="polite">
+              {status}
+            </div>
+          )}
+
           <div className="board-floating-panel" aria-label="Board controls">
             <div className="dock-group">
               <span className="dock-label">Shapes</span>

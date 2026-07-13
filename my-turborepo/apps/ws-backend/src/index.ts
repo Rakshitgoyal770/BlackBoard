@@ -1,10 +1,18 @@
 import { createServer, type IncomingMessage } from "http";
+import { existsSync } from "fs";
+import { fileURLToPath } from "url";
 import jwt from "jsonwebtoken";
 import { prisma } from "@repo/db";
 import { WebSocket, WebSocketServer } from "ws";
-import { secretKey } from "../../backend/config";
 
-const JWT_SECRET = secretKey;
+// Use the same JWT secret as the API in local development. Production
+// deployments provide JWT_SECRET directly and are never overwritten.
+const localApiEnvPath = fileURLToPath(new URL("../../backend/.env", import.meta.url));
+if (!process.env.JWT_SECRET && existsSync(localApiEnvPath)) {
+  process.loadEnvFile(localApiEnvPath);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET ?? "hi";
 const PORT = Number(process.env.PORT ?? 8080);
 
 interface User {

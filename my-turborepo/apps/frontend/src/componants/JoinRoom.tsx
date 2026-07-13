@@ -169,11 +169,6 @@ export default function JoinRoom() {
       });
 
       streamRef.current = stream;
-
-      if (videoPreviewRef.current) {
-        videoPreviewRef.current.srcObject = stream;
-      }
-
       setPermissionStatus('granted');
     } catch (error) {
       setPermissionStatus('denied');
@@ -222,6 +217,14 @@ export default function JoinRoom() {
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+
+  // The preview element mounts only after permission is granted, so attach the
+  // stream after React has rendered that element.
+  useEffect(() => {
+    if (permissionStatus === 'granted' && streamRef.current && videoPreviewRef.current) {
+      videoPreviewRef.current.srcObject = streamRef.current;
+    }
+  }, [permissionStatus]);
 
   async function onCreateRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

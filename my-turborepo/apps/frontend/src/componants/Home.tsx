@@ -17,7 +17,7 @@ export default function Home() {
                         <>
                             <Link to="/join-room" className="btn btn-primary">
                                 Join a room
-                            </Link>
+                            </Link> 
                             <button
                                 className="btn btn-ghost"
                                 type="button"

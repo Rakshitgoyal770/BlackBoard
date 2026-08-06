@@ -325,6 +325,18 @@ export default function ChatRoom() {
     const coordinates = getCanvasCoordinates(event);
     if (!coordinates) return;
     drawStateRef.current = { drawing: true, startX: coordinates.x, startY: coordinates.y };
+    if (toolRef.current === "pencil") {
+        draftShapeRef.current = {
+            type: "pencil",
+            points: [
+                {
+                    x: coordinates.x,
+                    y: coordinates.y,
+                },
+            ],
+        };
+    }
+
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
@@ -332,6 +344,24 @@ export default function ChatRoom() {
     if (!drawStateRef.current.drawing) return;
     const coordinates = getCanvasCoordinates(event);
     if (!coordinates) return;
+
+    if (toolRef.current === "pencil") {
+
+        const pencil = draftShapeRef.current;
+
+        if (pencil && pencil.type === "pencil") {
+
+            pencil.points.push({
+                x: coordinates.x,
+                y: coordinates.y,
+            });
+
+            redrawBoard(pencil);
+        }
+
+        return;
+    }
+
     draftShapeRef.current = buildShape(
       toolRef.current,
       drawStateRef.current.startX,
@@ -354,14 +384,30 @@ export default function ChatRoom() {
       return;
     }
 
-    const nextShape = buildShape(
-      toolRef.current,
-      drawStateRef.current.startX,
-      drawStateRef.current.startY,
-      coordinates.x,
-      coordinates.y
+    let nextShape: Shape;
+
+if (toolRef.current === "pencil") {
+
+    if (
+        !draftShapeRef.current ||
+        draftShapeRef.current.type !== "pencil"
+    ) {
+        return;
+    }
+
+    nextShape = draftShapeRef.current;
+
+} else {
+
+    nextShape = buildShape(
+        toolRef.current,
+        drawStateRef.current.startX,
+        drawStateRef.current.startY,
+        coordinates.x,
+        coordinates.y
     );
 
+}
     draftShapeRef.current = null;
     const nextShapes = mergeShapes(shapesRef.current, [nextShape]);
     shapesRef.current = nextShapes;
@@ -482,7 +528,16 @@ export default function ChatRoom() {
                 aria-label="Line tool"
                 title="Line"
               >
-                <span aria-hidden="true">／</span>
+              <span aria-hidden="true">／</span>
+              </button>
+              <button
+                className={`dock-button ${selectedTool === 'pencil' ? 'active' : ''}`}
+                type="button"
+                onClick={() => setSelectedTool('pencil')}
+                aria-label="pencil tool"
+                title="Line"
+              >
+              <span aria-hidden="true">P</span>
               </button>
             </div>
 

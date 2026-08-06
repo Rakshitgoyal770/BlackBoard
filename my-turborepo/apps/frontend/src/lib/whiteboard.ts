@@ -1,4 +1,4 @@
-export type Tool = 'rectangle' | 'circle' | 'line';
+export type Tool = 'rectangle' | 'circle' | 'line'| 'pencil';
 
 export type Shape =
   | {
@@ -20,7 +20,15 @@ export type Shape =
       startY: number;
       endX: number;
       endY: number;
+    }
+    |{
+      type: 'pencil';
+      points: {
+        x :number;
+        y :number;
+      }[]
     };
+
 
 export function parseShape(message: string): Shape | null {
   try {
@@ -54,6 +62,18 @@ export function parseShape(message: string): Shape | null {
         endY: Number(parsed.endY),
       };
     }
+
+    if (parsed.type === 'pencil') {
+    return {
+        type: 'pencil',
+        points: Array.isArray(parsed.points)
+            ? parsed.points.map((point) => ({
+                  x: Number((point as any).x),
+                  y: Number((point as any).y),
+              }))
+            : [],
+    };
+}
 
     return null;
   } catch {
@@ -113,6 +133,34 @@ function drawShape(
   context.strokeStyle = isPreview ? 'rgba(78, 96, 128, 0.52)' : '#bfc9d6';
   context.fillStyle = 'rgba(34, 46, 62, 0.18)';
   context.lineWidth = 2;
+
+  if (shape.type === 'pencil') {
+
+    if (shape.points.length < 2) {
+        return;
+    }
+
+    context.beginPath();
+
+    context.moveTo(
+        shape.points[0].x,
+        shape.points[0].y
+    );
+
+    for (let i = 1; i < shape.points.length; i++) {
+
+        context.lineTo(
+            shape.points[i].x,
+            shape.points[i].y
+        );
+
+    }
+
+    context.stroke();
+    context.closePath();
+
+    return;
+}
 
   if (shape.type === 'rectangle') {
     context.strokeRect(shape.x, shape.y, shape.width, shape.height);

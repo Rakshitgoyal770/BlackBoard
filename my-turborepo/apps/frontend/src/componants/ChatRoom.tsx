@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type {
+  PointerEvent as ReactPointerEvent,
+  WheelEvent as ReactWheelEvent,
+} from "react";
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { API_BASE, WS_BASE } from '../lib/config';
 import { getToken } from '../lib/auth';
@@ -133,6 +136,15 @@ export default function ChatRoom() {
   const [cameraOn, setCameraOn] = useState(initialCameraOn);
   const [micOn, setMicOn] = useState(initialMicOn);
   const [speakerOn, setSpeakerOn] = useState(true);
+  const undoStack = useRef<Shape[][]>([]);
+  const redoStack = useRef<Shape[][]>([]);
+
+  const cameraRef = useRef({
+    x: 0,
+    y: 0,
+    zoom: 1,
+});
+
 
   const roomLabel = useMemo(() => {
     if (room?.slug) return room.slug;
@@ -296,10 +308,19 @@ export default function ChatRoom() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const context = canvas.getContext('2d');
     if (!context) return;
-    drawScene(canvas, context, shapes, draftShapeRef.current);
-  }, [shapes]);
+
+    drawScene(
+        canvas,
+        context,
+        shapes,
+        cameraRef.current,
+        draftShapeRef.current
+    );
+
+}, [shapes]);
 
   function getCanvasCoordinates(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
@@ -307,19 +328,52 @@ export default function ChatRoom() {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
+    const worldX = ((event.clientX - rect.left) * scaleX - cameraRef.current.x) / cameraRef.current.zoom;
+
+    const worldY = ((event.clientY - rect.top) * scaleY - cameraRef.current.y) / cameraRef.current.zoom;
     return {
-      x: (event.clientX - rect.left) * scaleX,
-      y: (event.clientY - rect.top) * scaleY,
+       x: worldX,
+       y: worldY,
     };
   }
 
-  function redrawBoard(previewShape?: Shape | null) {
+  function saveHistory() {
+    undoStack.current.push(
+        shapesRef.current.map(shape => structuredClone(shape))
+    );
+
+    redoStack.current = [];
+}
+  
+function handleWheel(event: ReactWheelEvent<HTMLCanvasElement>) {
+    event.preventDefault();
+
+    if (event.deltaY < 0) {
+        cameraRef.current.zoom *= 1.1;
+    } else {
+        cameraRef.current.zoom /= 1.1;
+    }
+
+    console.log(cameraRef.current.zoom);
+
+    redrawBoard();
+}
+
+function redrawBoard(previewShape?: Shape | null) {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const context = canvas.getContext('2d');
+
+    const context = canvas.getContext("2d");
     if (!context) return;
-    drawScene(canvas, context, shapesRef.current, previewShape);
-  }
+
+    drawScene(
+        canvas,
+        context,
+        shapesRef.current,
+        cameraRef.current,
+        previewShape
+    );
+}
 
   function handlePointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     const coordinates = getCanvasCoordinates(event);
@@ -399,6 +453,9 @@ if (toolRef.current === "pencil") {
 
 } else {
 
+  saveHistory();
+
+
     nextShape = buildShape(
         toolRef.current,
         drawStateRef.current.startX,
@@ -437,6 +494,74 @@ if (toolRef.current === "pencil") {
   function handleLeaveRoom() {
     navigate('/join-room', { replace: true });
   }
+
+  function undo() {
+
+    if (undoStack.current.length === 0) {
+        return;
+    }
+
+    redoStack.current.push(
+        structuredClone(shapesRef.current)
+    );
+
+    const previous =
+        undoStack.current.pop()!;
+
+    shapesRef.current = previous;
+    setShapes(previous);
+
+    redrawBoard();
+}
+
+function redo() {
+
+    if (redoStack.current.length === 0) {
+        return;
+    }
+
+    undoStack.current.push(
+        structuredClone(shapesRef.current)
+    );
+
+    const next =
+        redoStack.current.pop()!;
+
+    shapesRef.current = next;
+    setShapes(next);
+
+    redrawBoard();
+}
+
+useEffect(() => {
+
+    function handleKeyDown(event: KeyboardEvent) {
+
+        if (event.ctrlKey && event.key === "z") {
+            event.preventDefault();
+            undo();
+        }
+
+        if (
+            event.ctrlKey &&
+            (event.key === "y" ||
+             (event.shiftKey && event.key === "Z"))
+        ) {
+            event.preventDefault();
+            redo();
+        }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () =>
+        window.removeEventListener(
+            "keydown",
+            handleKeyDown
+        );
+
+}, []);
+
 
   return (
     <main className="board-shell">
@@ -485,7 +610,8 @@ if (toolRef.current === "pencil") {
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerLeave={handlePointerLeave}
-              />
+                onWheel={handleWheel}
+            />
             </div>
           )}
 
@@ -538,6 +664,24 @@ if (toolRef.current === "pencil") {
                 title="Line"
               >
               <span aria-hidden="true">P</span>
+              </button>
+            </div>
+
+            <div>
+              <button
+                  className="dock-button"
+                  onClick={undo}
+                  title="Undo"
+              >
+                  ↶
+              </button>
+
+              <button
+                  className="dock-button"
+                  onClick={redo}
+                  title="Redo"
+              >
+                  ↷
               </button>
             </div>
 

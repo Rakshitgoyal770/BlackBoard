@@ -1,5 +1,12 @@
 export type Tool = 'rectangle' | 'circle' | 'line'| 'pencil';
 
+type Camera = {
+    x: number;
+    y: number;
+    zoom: number;
+};
+
+
 export type Shape =
   | {
       type: 'rectangle';
@@ -29,6 +36,16 @@ export type Shape =
       }[]
     };
 
+    function transformPoint(
+    x: number,
+    y: number,
+    camera: Camera
+) {
+    return {
+        x: x * camera.zoom + camera.x,
+        y: y * camera.zoom + camera.y,
+    };
+}
 
 export function parseShape(message: string): Shape | null {
   try {
@@ -85,6 +102,7 @@ export function drawScene(
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
   shapes: Shape[],
+  camera: Camera,
   previewShape?: Shape | null
 ) {
   context.clearRect(0, 0, canvas.width, canvas.height);
@@ -118,17 +136,20 @@ export function drawScene(
   context.fillStyle = sheen;
   context.fillRect(0, 0, canvas.width, canvas.height);
 
-  shapes.forEach((shape) => drawShape(context, shape, false));
+  shapes.forEach((shape) =>
+    drawShape(context, shape, camera, false)
+);
 
-  if (previewShape) {
-    drawShape(context, previewShape, true);
-  }
+if (previewShape) {
+    drawShape(context, previewShape, camera, true);
+}
 }
 
 function drawShape(
   context: CanvasRenderingContext2D,
-  shape: Shape,
-  isPreview: boolean
+    shape: Shape,
+    camera: Camera,
+    isPreview: boolean
 ) {
   context.strokeStyle = isPreview ? 'rgba(78, 96, 128, 0.52)' : '#bfc9d6';
   context.fillStyle = 'rgba(34, 46, 62, 0.18)';
@@ -142,19 +163,29 @@ function drawShape(
 
     context.beginPath();
 
-    context.moveTo(
-        shape.points[0].x,
-        shape.points[0].y
+    const first = transformPoint(
+    shape.points[0].x,
+    shape.points[0].y,
+    camera
+  
+);
+
+context.moveTo(first.x, first.y);
+
+for (let i = 1; i < shape.points.length; i++) {
+
+    const point = transformPoint(
+        shape.points[i].x,
+        shape.points[i].y,
+        camera
     );
 
-    for (let i = 1; i < shape.points.length; i++) {
+    context.lineTo(
+        point.x,
+        point.y
+    );
+}
 
-        context.lineTo(
-            shape.points[i].x,
-            shape.points[i].y
-        );
-
-    }
 
     context.stroke();
     context.closePath();
@@ -163,31 +194,87 @@ function drawShape(
 }
 
   if (shape.type === 'rectangle') {
-    context.strokeRect(shape.x, shape.y, shape.width, shape.height);
-    if (!isPreview) {
-      context.fillRect(shape.x, shape.y, shape.width, shape.height);
-    }
-    return;
-  }
 
-  if (shape.type === 'circle') {
-    context.beginPath();
-    context.arc(shape.centerX, shape.centerY, shape.radius, 0, Math.PI * 2);
-    if (!isPreview) {
-      context.fill();
-    }
-    context.stroke();
-    context.closePath();
-    return;
-  }
+    const topLeft = transformPoint(
+        shape.x,
+        shape.y,
+        camera
+    );
 
-  context.beginPath();
-  context.moveTo(shape.startX, shape.startY);
-  context.lineTo(shape.endX, shape.endY);
-  context.stroke();
-  context.closePath();
+    context.strokeRect(
+        topLeft.x,
+        topLeft.y,
+        shape.width * camera.zoom,
+        shape.height * camera.zoom
+    );
+
+    if (!isPreview) {
+        context.fillRect(
+            topLeft.x,
+            topLeft.y,
+            shape.width * camera.zoom,
+            shape.height * camera.zoom
+        );
+    }
+
+    return;
 }
 
+  if (shape.type === 'circle') {
+
+    const center = transformPoint(
+        shape.centerX,
+        shape.centerY,
+        camera
+    );
+
+    context.beginPath();
+
+    context.arc(
+        center.x,
+        center.y,
+        shape.radius * camera.zoom,
+        0,
+        Math.PI * 2
+    );
+
+    if (!isPreview) {
+        context.fill();
+    }
+
+    context.stroke();
+    context.closePath();
+
+    return;
+}
+
+  const start = transformPoint(
+    shape.startX,
+    shape.startY,
+    camera
+);
+
+const end = transformPoint(
+    shape.endX,
+    shape.endY,
+    camera
+);
+
+context.beginPath();
+
+context.moveTo(
+    start.x,
+    start.y
+);
+
+context.lineTo(
+    end.x,
+    end.y
+);
+
+context.stroke();
+context.closePath();
+}
 export function buildShape(
   tool: Tool,
   startX: number,

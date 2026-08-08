@@ -12,13 +12,13 @@ import MicrophoneIcon from './MicrophoneIcon';
 import MicrophoneOffIcon from './MicrophoneOffIcon';
 import SpeakerOffIcon from './SpeakerIcon';
 import SpeakerOnIcon from './SpeakerOnIcon';
-import CameraIcon from './CameraIcon';
+import CameraIcon from './cameraIcon';
 import CameraOffIcon from './CameraOffIcon';
 import { buildShape, drawScene, parseShape, type Shape, type Tool, MIN_ZOOM, MAX_ZOOM, clampCamera} from '../lib/whiteboard';
 import { LiveKitRoom, RoomAudioRenderer, VideoTrack, useRoomContext, useTracks } from '@livekit/components-react';
 import { Track } from 'livekit-client';
-import type { TrackReferenceOrPlaceholder } from '@livekit/components-react';
 import '@livekit/components-styles';
+import type { TrackReference, TrackReferenceOrPlaceholder } from '@livekit/components-react';
 
 type RoomInfo = {
   id: number;
@@ -163,11 +163,11 @@ function VideoStrip({ adminIdentity }: { adminIdentity?: string }) {
         {visibleTracks.map((track) => (
           <div className="video-tile" key={track.participant.identity + track.source}>
             {'publication' in track ? (
-              <VideoTrack trackRef={track} className="video-tile-media" />
-            ) : (
-              <div className="video-placeholder">Camera off</div>
-            )}
-            <div className="participant-status" aria-label="Participant status">
+                <VideoTrack trackRef={track as TrackReference} className="video-tile-media" />
+                  ) : (
+                    <div className="video-placeholder">Camera off</div>
+                  )}
+                <div className="participant-status" aria-label="Participant status">
               <span
                 className={`participant-status-chip icon-only ${track.participant.isMicrophoneEnabled ? 'on' : 'off'}`}
                 aria-label={track.participant.isMicrophoneEnabled ? 'Mic on' : 'Mic off'}

@@ -6,6 +6,54 @@ type Camera = {
     zoom: number;
 };
 
+export const WORLD_WIDTH = 10000;
+export const WORLD_HEIGHT = 10000;
+
+export const MIN_ZOOM = 0.15;
+export const MAX_ZOOM = 4;
+
+export function clampCamera(
+  camera: Camera,
+  canvasWidth: number,
+  canvasHeight: number
+): Camera {
+  const worldScreenWidth = WORLD_WIDTH * camera.zoom;
+  const worldScreenHeight = WORLD_HEIGHT * camera.zoom;
+
+  let x = camera.x;
+  let y = camera.y;
+
+  // If the world is larger than the viewport,
+  // keep the viewport inside the world.
+  if (worldScreenWidth >= canvasWidth) {
+    const minX = canvasWidth - worldScreenWidth;
+    const maxX = 0;
+
+    x = Math.max(minX, Math.min(maxX, x));
+  } else {
+    // World is smaller than viewport.
+    // Keep the world centered.
+    x = (canvasWidth - worldScreenWidth) / 2;
+  }
+
+  if (worldScreenHeight >= canvasHeight) {
+    const minY = canvasHeight - worldScreenHeight;
+    const maxY = 0;
+
+    y = Math.max(minY, Math.min(maxY, y));
+  } else {
+    // World is smaller than viewport.
+    // Keep the world centered.
+    y = (canvasHeight - worldScreenHeight) / 2;
+  }
+
+  return {
+    x,
+    y,
+    zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.zoom)),
+  };
+}
+
 
 export type Shape =
   | {

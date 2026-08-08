@@ -921,6 +921,10 @@ h1 {
   flex-wrap: wrap;
 }
 
+.board-canvas {
+  touch-action: none;
+}
+
 .participant-status-chip {
   display: inline-flex;
   align-items: center;

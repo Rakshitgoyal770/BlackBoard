@@ -1,3 +1,5 @@
+import 'dotenv/config';
+import { AccessToken } from 'livekit-server-sdk';
 import express from 'express';
 import { prisma } from '@repo/db';
 import jwt from 'jsonwebtoken';
@@ -38,7 +40,7 @@ app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
 })
 
-app.post('/SignUp', async (req, res) => {  
+app.post('/SignUp', async (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
 
@@ -46,37 +48,65 @@ app.post('/SignUp', async (req, res) => {
         return res.status(400).send('username and password are required');
     }
 
-    let user = await prisma.user.findFirst({ where: { username } });
-    if(user){
-        return res.status(409).send('User already exists');    
-    }
-
-    user = await prisma.user.create({
-        // @ts-ignore
-        data: {
-            username: username,
-            password: password,
-            name: username,
-            email: `${username}@local.dev`
+    try {
+        let user = await prisma.user.findFirst({ where: { username } });
+        if (user) {
+            return res.status(409).send('User already exists');
         }
-    })
 
-    res.status(201).send({ userId: user.id });
+        user = await prisma.user.create({
+            // @ts-ignore
+            data: {
+                username: username,
+                password: password,
+                name: username,
+                email: `${username}@local.dev`
+            }
+        });
 
+        res.status(201).send({ userId: user.id });
+    } catch (error) {
+        console.error('SignUp error - full details:', {
+            message: error instanceof Error ? error.message : String(error),
+            code: (error as any)?.code,
+            meta: (error as any)?.meta,
+            stack: error instanceof Error ? error.stack : undefined,
+        });
+        res.status(500).send('Internal server error during signup');
+    }
 })
 
 app.post('/Login', async (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
 
-    const user = await prisma.user.findFirst({ where: { username, password } });
-
-    if(!user){
-        return res.status(401).send('Invalid username or password');
+    if (!username || !password) {
+        return res.status(400).send('username and password are required');
     }
 
-    const token = jwt.sign({ UserId: user.id }, secretKey, { expiresIn: '1h' });
-    res.send({ token });
+    try {
+        const user = await prisma.user.findFirst({ where: { username, password } });
+
+        if (!user) {
+            return res.status(401).send('Invalid username or password');
+        }
+
+        if (!secretKey) {
+            console.error('Login error: secretKey is undefined - check JWT env variable on the server.');
+            return res.status(500).send('Server misconfiguration: missing secret key');
+        }
+
+        const token = jwt.sign({ UserId: user.id }, secretKey, { expiresIn: '1h' });
+        res.send({ token });
+    } catch (error) {
+        console.error('Login error - full details:', {
+            message: error instanceof Error ? error.message : String(error),
+            code: (error as any)?.code,
+            meta: (error as any)?.meta,
+            stack: error instanceof Error ? error.stack : undefined,
+        });
+        res.status(500).send('Internal server error during login');
+    }
 })
 
 app.post('/rooms', middleware, async (req, res) => {
@@ -100,7 +130,11 @@ app.post('/rooms', middleware, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error creating room:', error);
+        console.error('Error creating room:', {
+            message: error instanceof Error ? error.message : String(error),
+            code: (error as any)?.code,
+            meta: (error as any)?.meta,
+        });
         res.status(500).send('Error creating room');
     }
 });
@@ -112,29 +146,37 @@ app.get('/rooms/:roomId', middleware, async (req, res) => {
         return res.status(400).send('Invalid room id');
     }
 
-    const room = await prisma.room.findUnique({
-        where: { id: roomId },
-        include: {
-            admin: {
-                select: {
-                    id: true,
-                    username: true,
-                    name: true
+    try {
+        const room = await prisma.room.findUnique({
+            where: { id: roomId },
+            include: {
+                admin: {
+                    select: {
+                        id: true,
+                        username: true,
+                        name: true
+                    }
                 }
             }
+        });
+
+        if (!room) {
+            return res.status(404).send('Room not found');
         }
-    });
 
-    if (!room) {
-        return res.status(404).send('Room not found');
+        res.json({
+            id: room.id,
+            slug: room.slug,
+            createdAt: room.createdAt,
+            admin: room.admin
+        });
+    } catch (error) {
+        console.error('Error fetching room:', {
+            message: error instanceof Error ? error.message : String(error),
+            code: (error as any)?.code,
+        });
+        res.status(500).send('Error fetching room');
     }
-
-    res.json({
-        id: room.id,
-        slug: room.slug,
-        createdAt: room.createdAt,
-        admin: room.admin
-    });
 });
 
 app.get('/rooms/:roomId/messages', middleware, async (req, res) => {
@@ -144,43 +186,100 @@ app.get('/rooms/:roomId/messages', middleware, async (req, res) => {
         return res.status(400).send('Invalid room id');
     }
 
-    const room = await prisma.room.findUnique({
-        where: { id: roomId },
-        select: { id: true }
-    });
+    try {
+        const room = await prisma.room.findUnique({
+            where: { id: roomId },
+            select: { id: true }
+        });
 
-    if (!room) {
-        return res.status(404).send('Room not found');
-    }
+        if (!room) {
+            return res.status(404).send('Room not found');
+        }
 
-    const messages = await prisma.chat.findMany({
-        where: { roomId },
-        orderBy: { createdAt: 'asc' },
-        take: 100,
-        include: {
-            user: {
-                select: {
-                    id: true,
-                    username: true,
-                    name: true
+        const messages = await prisma.chat.findMany({
+            where: { roomId },
+            orderBy: { createdAt: 'asc' },
+            take: 100,
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        name: true
+                    }
                 }
             }
-        }
-    });
+        });
 
-    res.json(
-        messages.map((chat) => ({
-            id: chat.id,
-            message: chat.message,
-            createdAt: chat.createdAt,
-            roomId: chat.roomId,
-            userId: chat.userId,
-            username: chat.user.username,
-            name: chat.user.name
-        }))
-    );
+        res.json(
+            messages.map((chat) => ({
+                id: chat.id,
+                message: chat.message,
+                createdAt: chat.createdAt,
+                roomId: chat.roomId,
+                userId: chat.userId,
+                username: chat.user.username,
+                name: chat.user.name
+            }))
+        );
+    } catch (error) {
+        console.error('Error fetching messages:', {
+            message: error instanceof Error ? error.message : String(error),
+            code: (error as any)?.code,
+        });
+        res.status(500).send('Error fetching messages');
+    }
 });
 
-app.listen(PORT, '0.0.0.0', ()=>{
+
+app.post('/video-token', middleware, async (req, res) => {
+    const userId = (req as any).userId;
+    const { roomId } = req.body;
+    const livekitApiKey = process.env.LIVEKIT_API_KEY?.trim();
+    const livekitApiSecret = process.env.LIVEKIT_API_SECRET?.trim();
+    const livekitUrl = process.env.LIVEKIT_URL?.trim();
+
+    if (!roomId) {
+        return res.status(400).send('roomId is required');
+    }
+
+    if (!livekitApiKey || !livekitApiSecret || !livekitUrl) {
+        return res.status(500).send('LiveKit server is not configured.');
+    }
+
+    if (!/^wss?:\/\//i.test(livekitUrl)) {
+        return res.status(500).send('LIVEKIT_URL must be a websocket URL, for example wss://<domain>.livekit.cloud');
+    }
+
+    try {
+        // Reuse your existing room lookup to confirm the room exists
+        const room = await prisma.room.findUnique({ where: { id: Number(roomId) } });
+        if (!room) {
+            return res.status(404).send('Room not found');
+        }
+
+        const at = new AccessToken(
+            livekitApiKey,
+            livekitApiSecret,
+            { identity: String(userId) }
+        );
+
+        at.addGrant({
+            roomJoin: true,
+            room: `room-${roomId}`, // namespace it so it doesn't collide with other apps
+        });
+
+        const token = await at.toJwt();
+        res.json({ token, url: livekitUrl });
+    } catch (error) {
+        console.error('Error generating video token:', {
+            message: error instanceof Error ? error.message : String(error),
+            code: (error as any)?.code,
+        });
+        res.status(500).send('Error generating video token');
+    }
+});
+
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`server is running on port ${PORT}`);
 })

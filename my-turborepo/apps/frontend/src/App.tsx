@@ -5,12 +5,12 @@ import SignIn from './componants/SignIn';
 import SignUp from './componants/SignUp';
 import JoinRoom from './componants/JoinRoom';
 import ChatRoom from './componants/ChatRoom';
+import { clearToken, isAuthenticated } from './lib/auth';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const token = localStorage.getItem('token');
-
-  if (!token) {
-    return <Navigate to="/signin" replace />;
+  if (!isAuthenticated()) {
+    clearToken();
+    return <Navigate to="/signin" replace state={{ message: 'Your session has expired. Please sign in again.' }} />;
   }
 
   return children;

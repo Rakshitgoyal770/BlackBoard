@@ -1,10 +1,18 @@
 import { createServer, type IncomingMessage } from "http";
+import { existsSync } from "fs";
+import { fileURLToPath } from "url";
 import jwt from "jsonwebtoken";
 import { prisma } from "@repo/db";
 import { WebSocket, WebSocketServer } from "ws";
-import { secretKey } from "../../backend/config";
 
-const JWT_SECRET = secretKey;
+// Use the same JWT secret as the API in local development. Production
+// deployments provide JWT_SECRET directly and are never overwritten.
+const localApiEnvPath = fileURLToPath(new URL("../../backend/.env", import.meta.url));
+if (!process.env.JWT_SECRET && existsSync(localApiEnvPath)) {
+  process.loadEnvFile(localApiEnvPath);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET ?? "hi";
 const PORT = Number(process.env.PORT ?? 8080);
 
 interface User {
@@ -71,6 +79,7 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
     return;
   }
 
+  // Keep a small in-memory record so we can track which rooms this socket has joined.
   const currentUser: User = {
     ws,
     userId,
@@ -100,6 +109,7 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
       }
 
       if (!currentUser.rooms.includes(roomId)) {
+        // Join is idempotent; only add the room once per connected socket.
         currentUser.rooms.push(roomId);
       }
 
@@ -113,6 +123,7 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
         return;
       }
 
+      // Remove the room so future broadcasts skip this socket.
       currentUser.rooms = currentUser.rooms.filter((room) => room !== roomId);
       return;
     }
@@ -125,43 +136,52 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
         return;
       }
 
-      const chat = await prisma.chat.create({
-        data: {
-          roomId,
-          userId,
-          message,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              name: true,
+      try{
+        console.log("Saving chat message to database:", { roomId, userId, message });
+        // Persist the shape first so the room history stays consistent with realtime delivery.
+        const chat = await prisma.chat.create({
+          data: {
+            roomId,
+            userId,
+            message,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+              },
             },
           },
-        },
-      });
-
-      users.forEach((user) => {
-        if (user.rooms.includes(roomId) && user.ws.readyState === WebSocket.OPEN) {
-          user.ws.send(
-            JSON.stringify({
-              type: "chat",
-              roomId,
-              id: chat.id,
-              message,
-              userId,
-              username: chat.user.username,
-              name: chat.user.name,
-              createdAt: chat.createdAt,
-            }),
-          );
-        }
-      });
+        });
+      
+      
+      // Broadcast the saved payload only to sockets that have joined the room.
+        users.forEach((user) => {
+          if (user.rooms.includes(roomId) && user.ws.readyState === WebSocket.OPEN) {
+            user.ws.send(
+              JSON.stringify({
+                type: "chat",
+                roomId,
+                id: chat.id,
+                message,
+                userId,
+                username: chat.user.username,
+                name: chat.user.name,
+                createdAt: chat.createdAt,
+              }),
+            );
+          }
+        });
+      } catch (error) {
+        console.error("Error saving chat message:", error);
+      }
     }
   });
 
   ws.on("close", () => {
+    // Drop disconnected sockets from the active user list to avoid stale broadcasts.
     const index = users.findIndex((user) => user.ws === ws);
 
     if (index !== -1) {
@@ -169,6 +189,26 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
     }
   });
 });
+
+async function testDatabase() {
+  try {
+    console.log("🔌 Testing database connection...");
+
+    await prisma.$connect();
+
+    console.log("✅ Database connected");
+
+    const count = await prisma.chat.count();
+
+    console.log("✅ Chat table accessible");
+    console.log("📊 Chat count:", count);
+  } catch (error) {
+    console.error("❌ Database test failed:");
+    console.error(error);
+  }
+}
+
+testDatabase();
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`WebSocket server is running on port ${PORT}`);

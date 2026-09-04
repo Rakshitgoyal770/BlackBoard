@@ -3,7 +3,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { config } from "dotenv";
 import { fileURLToPath } from "url";
 
-config({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
+// Only load a local .env file in development — in production (Render, etc.),
+// the platform injects real environment variables directly, and this file
+// won't exist (correctly, since it's gitignored).
+if (process.env.NODE_ENV !== "production") {
+  config({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
+}
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,

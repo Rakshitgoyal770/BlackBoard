@@ -136,41 +136,47 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
         return;
       }
 
-      // Persist the shape first so the room history stays consistent with realtime delivery.
-      const chat = await prisma.chat.create({
-        data: {
-          roomId,
-          userId,
-          message,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              name: true,
+      try{
+        console.log("Saving chat message to database:", { roomId, userId, message });
+        // Persist the shape first so the room history stays consistent with realtime delivery.
+        const chat = await prisma.chat.create({
+          data: {
+            roomId,
+            userId,
+            message,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+              },
             },
           },
-        },
-      });
-
+        });
+      
+      
       // Broadcast the saved payload only to sockets that have joined the room.
-      users.forEach((user) => {
-        if (user.rooms.includes(roomId) && user.ws.readyState === WebSocket.OPEN) {
-          user.ws.send(
-            JSON.stringify({
-              type: "chat",
-              roomId,
-              id: chat.id,
-              message,
-              userId,
-              username: chat.user.username,
-              name: chat.user.name,
-              createdAt: chat.createdAt,
-            }),
-          );
-        }
-      });
+        users.forEach((user) => {
+          if (user.rooms.includes(roomId) && user.ws.readyState === WebSocket.OPEN) {
+            user.ws.send(
+              JSON.stringify({
+                type: "chat",
+                roomId,
+                id: chat.id,
+                message,
+                userId,
+                username: chat.user.username,
+                name: chat.user.name,
+                createdAt: chat.createdAt,
+              }),
+            );
+          }
+        });
+      } catch (error) {
+        console.error("Error saving chat message:", error);
+      }
     }
   });
 
@@ -183,6 +189,26 @@ wss.on("connection", (ws: WebSocket, request: IncomingMessage) => {
     }
   });
 });
+
+async function testDatabase() {
+  try {
+    console.log("🔌 Testing database connection...");
+
+    await prisma.$connect();
+
+    console.log("✅ Database connected");
+
+    const count = await prisma.chat.count();
+
+    console.log("✅ Chat table accessible");
+    console.log("📊 Chat count:", count);
+  } catch (error) {
+    console.error("❌ Database test failed:");
+    console.error(error);
+  }
+}
+
+testDatabase();
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`WebSocket server is running on port ${PORT}`);
